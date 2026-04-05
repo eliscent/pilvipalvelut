@@ -1,0 +1,14 @@
+=== Repository Analysis Report ===
+
+Detected languages:
+- HTML
+- CSS
+
+Detected design patterns:
+- Singleton
+- Factory Method
+- Strategy
+- Observer
+- Decorator
+
+Analysis complete.
