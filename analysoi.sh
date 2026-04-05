@@ -6,7 +6,7 @@ echo "=== Repository Analysis Report ===" > $REPORT
 echo "" >> $REPORT
 
 # -------------------------
-# 1. KIELTEN TUNNISTUS
+# KIELTEN TUNNISTUS
 # -------------------------
 echo "Detected languages:" | tee -a $REPORT
 
@@ -25,11 +25,13 @@ detect_lang "*.c" "C"
 detect_lang "*.cs" "C#"
 detect_lang "*.go" "Go"
 detect_lang "*.rb" "Ruby"
+detect_lang "*.html" "HTML"
+detect_lang "*.css" "CSS"
 
 echo "" | tee -a $REPORT
 
 # -------------------------
-# 2. SUUNNITTELUMALLIT
+# SUUNNITTELUMALLIT
 # -------------------------
 echo "Detected design patterns:" | tee -a $REPORT
 
@@ -64,6 +66,6 @@ fi
 echo "" | tee -a $REPORT
 
 # -------------------------
-# 3. YHTEENVETO
+# YHTEENVETO
 # -------------------------
 echo "Analysis complete." | tee -a $REPORT
