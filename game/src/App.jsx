@@ -70,12 +70,17 @@ function App() {
           },
         };
 
+      try {
         const gameId = await createGame(sessionWithPlayer);
+        console.log("GAME CREATED:", gameId);
 
         setSession({
           ...sessionWithPlayer,
           id: gameId,
         });
+      } catch (error) {
+        console.error("CREATE GAME ERROR:", error);
+      }
       } else {
         setCodename(null);
       }
