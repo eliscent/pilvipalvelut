@@ -9,37 +9,44 @@ import RoundResult from "./components/RoundResult";
 function App() {
   const [user, setUser] = useState(null);
   const [codename, setCodename] = useState("");
-  const [players, setPlayers] = useState([]);
+  const [player, setPlayer] = useState(null);
   const [correctPrice, setCorrectPrice] = useState(null);
   const [product, setProduct] = useState(null);
 
   const generateCodename = () => {
     const animals = ["Fox", "Wolf", "Tiger", "Eagle", "Shadow", "Raven"];
-    return (
-      animals[Math.floor(Math.random() * animals.length)] +
-      Math.floor(Math.random() * 100)
-    );
+    return animals[Math.floor(Math.random() * animals.length)] +
+           Math.floor(Math.random() * 100);
   };
 
-  // DummyJSON fetch
+  // DummyJSON
   async function fetchRandomProduct() {
     const res = await fetch("https://dummyjson.com/products");
     const data = await res.json();
+    return data.products[Math.floor(Math.random() * data.products.length)];
+  }
 
-    const products = data.products;
-    const randomIndex = Math.floor(Math.random() * products.length);
-    return products[randomIndex];
+  // UUSI KIERROS
+  async function newRound() {
+    const p = await fetchRandomProduct();
+
+    setProduct(p);
+    setCorrectPrice(null);
+
+    setPlayer({
+      ...player,
+      guess: null,
+      // score jätetään → pisteet kertyy
+    });
   }
 
   // AUTH
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
-
       if (!firebaseUser) return;
 
       let name = localStorage.getItem(firebaseUser.uid);
-
       if (!name) {
         name = generateCodename();
         localStorage.setItem(firebaseUser.uid, name);
@@ -47,52 +54,35 @@ function App() {
 
       setCodename(name);
 
-      // 👤 yksi pelaaja
-      setPlayers([
-        {
-          id: firebaseUser.uid,
-          codename: name,
-          guess: null,
-          score: 0,
-        },
-      ]);
+      setPlayer({
+        id: firebaseUser.uid,
+        codename: name,
+        guess: null,
+        score: 0,
+      });
 
-      // hae tuote
-      try {
-        const p = await fetchRandomProduct();
-        setProduct(p);
-      } catch (err) {
-        console.error("API error:", err);
-
-        // fallback
-        setProduct({
-          title: "Fallback Product",
-          price: 50,
-        });
-      }
+      const p = await fetchRandomProduct();
+      setProduct(p);
     });
 
     return () => unsubscribe();
   }, []);
 
   // ARVAUS
-function submitGuess(guess) {
-  const price = product.price;
+  function submitGuess(guess) {
+    const price = product.price;
 
-  const updatedPlayers = players.map((p) => {
     const diff = Math.abs(guess - price);
     const points = Math.max(0, 100 - diff);
 
-    return {
-      ...p,
+    setPlayer({
+      ...player,
       guess,
-      score: p.score + points,
-    };
-  });
+      score: player.score + points,
+    });
 
-  setPlayers(updatedPlayers);
-  setCorrectPrice(price);
-}
+    setCorrectPrice(price);
+  }
 
   return (
     <div>
@@ -101,7 +91,6 @@ function submitGuess(guess) {
           <p>👋 Tervetuloa, {codename}</p>
           <button onClick={logout}>Kirjaudu ulos</button>
 
-          {/* TUOTE */}
           {product && (
             <p>
               Arvattava tuote: <strong>{product.title}</strong>
@@ -111,14 +100,20 @@ function submitGuess(guess) {
           {!correctPrice ? (
             <QuizForm
               onSubmitGuess={submitGuess}
-              players={players}
+              players={player ? [player] : []}
               currentUserId={codename}
             />
           ) : (
-            <RoundResult
-              players={players}
-              correctPrice={correctPrice}
-            />
+            <>
+              <RoundResult
+                players={[player]}
+                correctPrice={correctPrice}
+              />
+
+              <button onClick={newRound}>
+                🔄 Uusi kierros
+              </button>
+            </>
           )}
         </>
       ) : (
