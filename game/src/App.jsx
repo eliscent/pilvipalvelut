@@ -13,15 +13,14 @@ import {
   createGame,
   updateGame,
   subscribeToGame,
-  joinGame, 
+  joinGame,
 } from "./services/firestoreService";
 
 function App() {
   const [user, setUser] = useState(null);
   const [codename, setCodename] = useState(null);
   const [session, setSession] = useState(null);
-
-  const [gameIdInput, setGameIdInput] = useState(""); 
+  const [gameIdInput, setGameIdInput] = useState("");
 
   const generateCodename = () => {
     const animals = ["Fox", "Wolf", "Tiger", "Eagle", "Shadow", "Raven"];
@@ -30,12 +29,18 @@ function App() {
     return animals[random] + number;
   };
 
-  // Auth + session luonti
+  // AUTH + ASYNC
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log("AUTH USER:", firebaseUser);
 
-      if (firebaseUser) {
+      if (!firebaseUser) {
+        setUser(null);
+        setCodename(null);
+        return;
+      }
+
+      (async () => {
         const uid = firebaseUser.uid;
 
         let name = localStorage.getItem(uid);
@@ -44,66 +49,64 @@ function App() {
           localStorage.setItem(uid, name);
         }
 
+        setUser(firebaseUser);
         setCodename(name);
 
-        const newSession = await createSession({
-          name: name + "-session",
-          creatorName: name,
-        });
+        try {
+          const newSession = await createSession({
+            name: name + "-session",
+            creatorName: name,
+          });
 
-        const player = {
-          id: uid,
-          codename: name,
-          score: 0,
-          guess: null,
-        };
+          const player = {
+            id: uid,
+            codename: name,
+            score: 0,
+            guess: null,
+          };
 
-        const randomProduct = await fetchRandomProduct();
+          const randomProduct = await fetchRandomProduct();
 
-        const sessionWithPlayer = {
-          ...newSession,
-          status: "waiting",
-          players: [player],
-          product: {
-            title: randomProduct.title,
-            price: randomProduct.price,
-          },
-        };
+          const sessionWithPlayer = {
+            ...newSession,
+            status: "waiting",
+            players: [player],
+            product: {
+              title: randomProduct.title,
+              price: randomProduct.price,
+            },
+          };
 
-      try {
-        const gameId = await createGame(sessionWithPlayer);
-        console.log("GAME CREATED:", gameId);
+          const gameId = await createGame(sessionWithPlayer);
+          console.log("GAME CREATED:", gameId);
 
-        setSession({
-          ...sessionWithPlayer,
-          id: gameId,
-        });
-      } catch (error) {
-        console.error("CREATE GAME ERROR:", error);
-      }
-      } else {
-        setCodename(null);
-      }
+          setSession({
+            ...sessionWithPlayer,
+            id: gameId,
+          });
+        } catch (error) {
+          console.error("CREATE GAME ERROR:", error);
+        }
+      })();
     });
 
     return () => unsubscribe();
   }, []);
 
-// Reaaliaikainen kuuntelu
-useEffect(() => {
-  if (!session?.id) return;
+  useEffect(() => {
+    if (!session?.id) return;
 
-  const gameId = session.id; 
+    const gameId = session.id;
 
-  const unsubscribe = subscribeToGame(gameId, (data) => {
-    setSession({
-      ...data,
-      id: gameId, 
+    const unsubscribe = subscribeToGame(gameId, (data) => {
+      setSession({
+        ...data,
+        id: gameId,
+      });
     });
-  });
 
-  return () => unsubscribe();
-}, [session?.id]);
+    return () => unsubscribe();
+  }, [session?.id]);
 
   // Arvaus
   async function submitGuess(guess) {
@@ -192,23 +195,23 @@ useEffect(() => {
             </button>
           )}
 
-            {/* PLAYING */}
-            {session?.status === "playing" && (
-              <QuizForm
-                onSubmitGuess={(guess) => submitGuess(guess)}
-                players={session.players}
-                currentUserId={codename}
-                correctPrice={session?.correctPrice}
-              />
-            )}
+          {/* PLAYING */}
+          {session?.status === "playing" && (
+            <QuizForm
+              onSubmitGuess={(guess) => submitGuess(guess)}
+              players={session.players}
+              currentUserId={codename}
+              correctPrice={session?.correctPrice}
+            />
+          )}
 
-            {/* FINISHED */}
-            {session?.status === "finished" && (
-              <RoundResult
-                players={session.players}
-                correctPrice={session.correctPrice}
-              />
-            )}
+          {/* FINISHED */}
+          {session?.status === "finished" && (
+            <RoundResult
+              players={session.players}
+              correctPrice={session.correctPrice}
+            />
+          )}
         </>
       ) : (
         <LoginForm />
