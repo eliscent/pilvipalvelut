@@ -7,6 +7,7 @@ import QuizForm from "./components/QuizForm.jsx";
 import { createSession } from "./gameSessionService";
 import { resolveRound } from "./gameController";
 import RoundResult from "./components/RoundResult";
+import { fetchRandomProduct } from "./services/productService";
 
 import {
   updateGame,
@@ -18,7 +19,7 @@ function App() {
   const [codename, setCodename] = useState(null);
   const [session, setSession] = useState(null);
 
-  const GAME_ID = "main-game"; // 🔥 yksi yhteinen peli
+  const GAME_ID = "main-game";
 
   const generateCodename = () => {
     const animals = ["Fox", "Wolf", "Tiger", "Eagle", "Shadow", "Raven"];
@@ -27,7 +28,7 @@ function App() {
     return animals[random] + number;
   };
 
-  // AUTH + AUTO JOIN GAME
+  // 🔐 AUTH + JOIN / CREATE GAME
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser) {
@@ -56,23 +57,47 @@ function App() {
         };
 
         try {
-          // haetaan vanha peli tai luodaan uusi
           const newSession = await createSession({
             name: "Main Game",
             creatorName: name,
           });
 
-          const sessionData = {
-            ...newSession,
-            status: "waiting",
-            players: [player],
-            product: {
-              title: "Test Product",
-              price: 100,
-            },
-          };
+          // 🔥 Tarkista onko peli olemassa
+          const unsubscribeTemp = subscribeToGame(GAME_ID, async (existingGame) => {
+            if (!existingGame) {
+              // 🆕 LUODAAN PELI
+              const randomProduct = await fetchRandomProduct();
 
-          await updateGame(GAME_ID, sessionData);
+              const sessionData = {
+                ...newSession,
+                status: "waiting",
+                players: [player],
+                product: {
+                  title: randomProduct.title,
+                  price: randomProduct.price,
+                },
+              };
+
+              await updateGame(GAME_ID, sessionData);
+            } else {
+              // 👥 LIITYTÄÄN PELIIN
+              const alreadyExists = existingGame.players?.some(p => p.id === uid);
+
+              if (!alreadyExists) {
+                const updatedPlayers = [
+                  ...existingGame.players,
+                  player,
+                ];
+
+                await updateGame(GAME_ID, {
+                  ...existingGame,
+                  players: updatedPlayers,
+                });
+              }
+            }
+          });
+
+          unsubscribeTemp();
 
         } catch (err) {
           console.error("SESSION ERROR:", err);
@@ -83,7 +108,7 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // REALTIME KUUNTELU
+  // 🔄 REALTIME
   useEffect(() => {
     const unsubscribe = subscribeToGame(GAME_ID, (data) => {
       if (!data) return;
@@ -97,7 +122,7 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // ARVAUS
+  // 🎯 ARVAUS
   async function submitGuess(guess) {
     if (!session) return;
 
