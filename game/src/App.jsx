@@ -34,6 +34,7 @@ function App() {
 
       if (!firebaseUser) {
         setCodename(null);
+        setSession(null);
         return;
       }
 
@@ -60,7 +61,7 @@ function App() {
           guess: null,
         };
 
-        // 🔥 turvallinen API fetch
+        // 🔥 turvallinen fetch
         let randomProduct;
         try {
           randomProduct = await fetchRandomProduct();
@@ -96,17 +97,21 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // 🔄 REALTIME SYNC
+  // 🔄 REALTIME (FIXED)
   useEffect(() => {
     if (!session?.id) return;
 
     const gameId = session.id;
 
     const unsubscribe = subscribeToGame(gameId, (data) => {
-      setSession({
+      // 🔥 ÄLÄ ylikirjoita tyhjällä datalla
+      if (!data) return;
+
+      setSession((prev) => ({
+        ...prev,
         ...data,
         id: gameId,
-      });
+      }));
     });
 
     return () => unsubscribe();
@@ -130,6 +135,11 @@ function App() {
     resolveRound(updatedSession);
 
     await updateGame(session.id, updatedSession);
+  }
+
+  // 🔥 LOADING FIX
+  if (user && !session) {
+    return <p>Ladataan peli...</p>;
   }
 
   return (
