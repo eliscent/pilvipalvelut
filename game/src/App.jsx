@@ -3,7 +3,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import LoginForm from "./LoginForm";
 import { auth, logout } from "./authService";
 
-import QuizForm from "./components/QuizForm";
+import QuizForm from "./components/QuizForm.jsx";
 import { createSession } from "./gameSessionService";
 import { resolveRound } from "./gameController";
 import { fetchRandomProduct } from "./services/productService";
