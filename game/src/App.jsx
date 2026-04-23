@@ -88,10 +88,12 @@ function App() {
 useEffect(() => {
   if (!session?.id) return;
 
-  const unsubscribe = subscribeToGame(session.id, (data) => {
+  const gameId = session.id; 
+
+  const unsubscribe = subscribeToGame(gameId, (data) => {
     setSession({
       ...data,
-      id: session.id,
+      id: gameId, 
     });
   });
 
