@@ -44,3 +44,14 @@ export async function joinGame(gameId, player) {
     { merge: true }
   );
 }
+
+export async function getGame(id) {
+  const ref = doc(db, "games", id);
+  const snap = await getDoc(ref);
+
+  if (snap.exists()) {
+    return snap.data();
+  }
+
+  return null;
+}

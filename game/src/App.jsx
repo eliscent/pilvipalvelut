@@ -12,6 +12,7 @@ import { fetchRandomProduct } from "./services/productService";
 import {
   updateGame,
   subscribeToGame,
+  getGame, // 🔥 LISÄTTY
 } from "./services/firestoreService";
 
 function App() {
@@ -28,7 +29,7 @@ function App() {
     return animals[random] + number;
   };
 
-  // 🔐 AUTH + JOIN / CREATE GAME
+  // 🔐 AUTH + CREATE / JOIN
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser) {
@@ -62,42 +63,40 @@ function App() {
             creatorName: name,
           });
 
-          // 🔥 Tarkista onko peli olemassa
-          const unsubscribeTemp = subscribeToGame(GAME_ID, async (existingGame) => {
-            if (!existingGame) {
-              // 🆕 LUODAAN PELI
-              const randomProduct = await fetchRandomProduct();
+          const existingGame = await getGame(GAME_ID);
 
-              const sessionData = {
-                ...newSession,
-                status: "waiting",
-                players: [player],
-                product: {
-                  title: randomProduct.title,
-                  price: randomProduct.price,
-                },
-              };
+          if (!existingGame) {
+            // 🆕 LUODAAN PELI
+            const randomProduct = await fetchRandomProduct();
 
-              await updateGame(GAME_ID, sessionData);
-            } else {
-              // 👥 LIITYTÄÄN PELIIN
-              const alreadyExists = existingGame.players?.some(p => p.id === uid);
+            const sessionData = {
+              ...newSession,
+              status: "waiting",
+              players: [player],
+              product: {
+                title: randomProduct.title,
+                price: randomProduct.price,
+              },
+            };
 
-              if (!alreadyExists) {
-                const updatedPlayers = [
-                  ...existingGame.players,
-                  player,
-                ];
+            await updateGame(GAME_ID, sessionData);
 
-                await updateGame(GAME_ID, {
-                  ...existingGame,
-                  players: updatedPlayers,
-                });
-              }
+          } else {
+            // 👥 LIITYTÄÄN
+            const alreadyExists = existingGame.players?.some(p => p.id === uid);
+
+            if (!alreadyExists) {
+              const updatedPlayers = [
+                ...existingGame.players,
+                player,
+              ];
+
+              await updateGame(GAME_ID, {
+                ...existingGame,
+                players: updatedPlayers,
+              });
             }
-          });
-
-          unsubscribeTemp();
+          }
 
         } catch (err) {
           console.error("SESSION ERROR:", err);
