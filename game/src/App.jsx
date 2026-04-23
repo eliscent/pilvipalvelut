@@ -42,7 +42,18 @@ function App() {
           creatorName: name,
         });
 
-        setSession(newSession);
+        const player = {
+        id: firebaseUser.uid,
+        codename: name,
+        score: 0,
+        guess: null,
+        };
+
+        setSession({
+        ...newSession,
+        status: "waiting",
+        players: [player],
+        });
 
         const randomProduct = await fetchRandomProduct();
         setProduct(randomProduct);
@@ -54,35 +65,75 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  function submitGuess(guess) {
-    if (session && product) {
-      session.correctPrice = product.price;
-      resolveRound(session, guess);
-      setSession({ ...session });
-    }
+function submitGuess(guess) {
+  if (session && product) {
+    const updatedPlayers = session.players.map(p =>
+      p.id === user.uid ? { ...p, guess } : p
+    );
+
+    setSession({
+      ...session,
+      players: updatedPlayers,
+      correctPrice: product.price,
+      status: "finished",
+    });
+
+    resolveRound(session, guess);
   }
+}
 
   return (
     <div>
-      {user ? (
-        <>
-          <p>👋 Tervetuloa, {codename || "..."}</p>
-          <button onClick={logout}>Kirjaudu ulos</button>
+{user ? (
+  <>
+    <p>👋 Tervetuloa, {codename || "..."}</p>
+    <button onClick={logout}>Kirjaudu ulos</button>
 
-          {product && (
-            <p>Arvattava tuote: {product.title}</p>
-          )}
+    {/* TUOTE */}
+    {product && (
+      <p>Arvattava tuote: {product.title}</p>
+    )}
 
-          <QuizForm
-            onSubmitGuess={(guess) => submitGuess(guess)}
-            players={[]}
-            currentUserId={codename}
-            correctPrice={session?.correctPrice}
-          />
-        </>
-      ) : (
-        <LoginForm />
-      )}
+    {/* KOHTA 4 */}
+    {session?.status === "waiting" && (
+      <button
+        onClick={() => {
+          setSession({ ...session, status: "playing" });
+        }}
+      >
+        Aloita peli
+      </button>
+    )}
+
+    {/* KOHTA 3 */}
+    {session?.status === "playing" && (
+      <QuizForm
+        onSubmitGuess={(guess) => submitGuess(guess)}
+        players={[]}
+        currentUserId={codename}
+        correctPrice={session?.correctPrice}
+      />
+    )}
+
+    {session?.status === "finished" && (
+<div>
+  <h3>Kierroksen tulos</h3>
+  <p>Oikea hinta: {session.correctPrice} €</p>
+
+  <ul>
+    {session.players.map(p => (
+      <li key={p.id}>
+        {p.codename}: {p.guess} €
+        (pisteet: {p.score})
+      </li>
+    ))}
+  </ul>
+</div>
+    )}
+  </>
+) : (
+  <LoginForm />
+)}
     </div>
   );
 }
