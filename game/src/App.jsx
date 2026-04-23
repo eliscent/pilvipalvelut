@@ -6,21 +6,19 @@ import { auth, logout } from "./authService";
 import QuizForm from "./components/QuizForm.jsx";
 import { createSession } from "./gameSessionService";
 import { resolveRound } from "./gameController";
-import { fetchRandomProduct } from "./services/productService";
 import RoundResult from "./components/RoundResult";
 
 import {
-  createGame,
   updateGame,
   subscribeToGame,
-  joinGame,
 } from "./services/firestoreService";
 
 function App() {
   const [user, setUser] = useState(null);
   const [codename, setCodename] = useState(null);
   const [session, setSession] = useState(null);
-  const [gameIdInput, setGameIdInput] = useState("");
+
+  const GAME_ID = "main-game"; // 🔥 yksi yhteinen peli
 
   const generateCodename = () => {
     const animals = ["Fox", "Wolf", "Tiger", "Eagle", "Shadow", "Raven"];
@@ -29,11 +27,9 @@ function App() {
     return animals[random] + number;
   };
 
-  // AUTH + ASYNC
+  // AUTH + AUTO JOIN GAME
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      console.log("AUTH USER:", firebaseUser);
-
       if (!firebaseUser) {
         setUser(null);
         setCodename(null);
@@ -52,40 +48,34 @@ function App() {
         setUser(firebaseUser);
         setCodename(name);
 
+        const player = {
+          id: uid,
+          codename: name,
+          score: 0,
+          guess: null,
+        };
+
         try {
+          // haetaan vanha peli tai luodaan uusi
           const newSession = await createSession({
-            name: name + "-session",
+            name: "Main Game",
             creatorName: name,
           });
 
-          const player = {
-            id: uid,
-            codename: name,
-            score: 0,
-            guess: null,
-          };
-
-          const randomProduct = await fetchRandomProduct();
-
-          const sessionWithPlayer = {
+          const sessionData = {
             ...newSession,
             status: "waiting",
             players: [player],
             product: {
-              title: randomProduct.title,
-              price: randomProduct.price,
+              title: "Test Product",
+              price: 100,
             },
           };
 
-          const gameId = await createGame(sessionWithPlayer);
-          console.log("GAME CREATED:", gameId);
+          await updateGame(GAME_ID, sessionData);
 
-          setSession({
-            ...sessionWithPlayer,
-            id: gameId,
-          });
-        } catch (error) {
-          console.error("CREATE GAME ERROR:", error);
+        } catch (err) {
+          console.error("SESSION ERROR:", err);
         }
       })();
     });
@@ -93,22 +83,21 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+  // REALTIME KUUNTELU
   useEffect(() => {
-    if (!session?.id) return;
+    const unsubscribe = subscribeToGame(GAME_ID, (data) => {
+      if (!data) return;
 
-    const gameId = session.id;
-
-    const unsubscribe = subscribeToGame(gameId, (data) => {
       setSession({
         ...data,
-        id: gameId,
+        id: GAME_ID,
       });
     });
 
     return () => unsubscribe();
-  }, [session?.id]);
+  }, []);
 
-  // Arvaus
+  // ARVAUS
   async function submitGuess(guess) {
     if (!session) return;
 
@@ -125,7 +114,7 @@ function App() {
 
     resolveRound(updatedSession);
 
-    await updateGame(session.id, updatedSession);
+    await updateGame(GAME_ID, updatedSession);
   }
 
   return (
@@ -134,44 +123,6 @@ function App() {
         <>
           <p>👋 Tervetuloa, {codename || "..."}</p>
           <button onClick={logout}>Kirjaudu ulos</button>
-
-          {/* GAME ID */}
-          {session?.id && (
-            <p>
-              Game ID: <strong>{session.id}</strong>
-            </p>
-          )}
-
-          {/* LIITY */}
-          <div>
-            <input
-              placeholder="Syötä pelin ID"
-              value={gameIdInput}
-              onChange={(e) => setGameIdInput(e.target.value)}
-            />
-
-            <button
-              onClick={async () => {
-                if (!gameIdInput) return;
-
-                const player = {
-                  id: user.uid,
-                  codename: codename,
-                  score: 0,
-                  guess: null,
-                };
-
-                await joinGame(gameIdInput, player);
-
-                setSession({
-                  ...session,
-                  id: gameIdInput,
-                });
-              }}
-            >
-              Liity peliin
-            </button>
-          </div>
 
           {/* TUOTE */}
           {session?.product && (
@@ -184,10 +135,9 @@ function App() {
           {session?.status === "waiting" && (
             <button
               onClick={async () => {
-                await updateGame(session.id, {
+                await updateGame(GAME_ID, {
                   ...session,
                   status: "playing",
-                  lastActivity: Date.now(),
                 });
               }}
             >
