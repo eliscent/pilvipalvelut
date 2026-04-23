@@ -7,12 +7,21 @@ import QuizForm from "./components/QuizForm.jsx";
 import { createSession } from "./gameSessionService";
 import { resolveRound } from "./gameController";
 import { fetchRandomProduct } from "./services/productService";
+import RoundResult from "./components/RoundResult";
+
+import {
+  createGame,
+  updateGame,
+  subscribeToGame,
+  joinGame, 
+} from "./services/firestoreService";
 
 function App() {
   const [user, setUser] = useState(null);
   const [codename, setCodename] = useState(null);
   const [session, setSession] = useState(null);
-  const [product, setProduct] = useState(null);
+
+  const [gameIdInput, setGameIdInput] = useState(""); 
 
   const generateCodename = () => {
     const animals = ["Fox", "Wolf", "Tiger", "Eagle", "Shadow", "Raven"];
@@ -21,6 +30,7 @@ function App() {
     return animals[random] + number;
   };
 
+  // Auth + session luonti
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
@@ -29,7 +39,6 @@ function App() {
         const uid = firebaseUser.uid;
 
         let name = localStorage.getItem(uid);
-
         if (!name) {
           name = generateCodename();
           localStorage.setItem(uid, name);
@@ -43,20 +52,30 @@ function App() {
         });
 
         const player = {
-        id: firebaseUser.uid,
-        codename: name,
-        score: 0,
-        guess: null,
+          id: uid,
+          codename: name,
+          score: 0,
+          guess: null,
         };
 
-        setSession({
-        ...newSession,
-        status: "waiting",
-        players: [player],
-        });
-
         const randomProduct = await fetchRandomProduct();
-        setProduct(randomProduct);
+
+        const sessionWithPlayer = {
+          ...newSession,
+          status: "waiting",
+          players: [player],
+          product: {
+            title: randomProduct.title,
+            price: randomProduct.price,
+          },
+        };
+
+        const gameId = await createGame(sessionWithPlayer);
+
+        setSession({
+          ...sessionWithPlayer,
+          id: gameId,
+        });
       } else {
         setCodename(null);
       }
@@ -65,75 +84,125 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-function submitGuess(guess) {
-  if (session && product) {
-    const updatedPlayers = session.players.map(p =>
+  // Reaaliaikainen kuuntelu
+  useEffect(() => {
+    if (!session?.id) return;
+
+    const unsubscribe = subscribeToGame(session.id, (data) => {
+      setSession(data);
+    });
+
+    return () => unsubscribe();
+  }, [session?.id]);
+
+  // Arvaus
+  async function submitGuess(guess) {
+    if (!session) return;
+
+    const updatedPlayers = session.players.map((p) =>
       p.id === user.uid ? { ...p, guess } : p
     );
 
-    setSession({
+    const updatedSession = {
       ...session,
       players: updatedPlayers,
-      correctPrice: product.price,
+      correctPrice: session.product.price,
       status: "finished",
-    });
+    };
 
-    resolveRound(session, guess);
+    resolveRound(updatedSession);
+
+    await updateGame(session.id, updatedSession);
   }
-}
 
   return (
     <div>
-{user ? (
-  <>
-    <p>👋 Tervetuloa, {codename || "..."}</p>
-    <button onClick={logout}>Kirjaudu ulos</button>
+      {user ? (
+        <>
+          <p>👋 Tervetuloa, {codename || "..."}</p>
+          <button onClick={logout}>Kirjaudu ulos</button>
 
-    {/* TUOTE */}
-    {product && (
-      <p>Arvattava tuote: {product.title}</p>
-    )}
+          {/* GAME ID */}
+          {session?.id && (
+            <p>
+              Game ID: <strong>{session.id}</strong>
+            </p>
+          )}
 
-    {/* KOHTA 4 */}
-    {session?.status === "waiting" && (
-      <button
-        onClick={() => {
-          setSession({ ...session, status: "playing" });
-        }}
-      >
-        Aloita peli
-      </button>
-    )}
+          {/* LIITY */}
+          <div>
+            <input
+              placeholder="Syötä pelin ID"
+              value={gameIdInput}
+              onChange={(e) => setGameIdInput(e.target.value)}
+            />
 
-    {/* KOHTA 3 */}
-    {session?.status === "playing" && (
-      <QuizForm
-        onSubmitGuess={(guess) => submitGuess(guess)}
-        players={[]}
-        currentUserId={codename}
-        correctPrice={session?.correctPrice}
-      />
-    )}
+            <button
+              onClick={async () => {
+                if (!gameIdInput) return;
 
-    {session?.status === "finished" && (
-<div>
-  <h3>Kierroksen tulos</h3>
-  <p>Oikea hinta: {session.correctPrice} €</p>
+                const player = {
+                  id: user.uid,
+                  codename: codename,
+                  score: 0,
+                  guess: null,
+                };
 
-  <ul>
-    {session.players.map(p => (
-      <li key={p.id}>
-        {p.codename}: {p.guess} €
-        (pisteet: {p.score})
-      </li>
-    ))}
-  </ul>
-</div>
-    )}
-  </>
-) : (
-  <LoginForm />
-)}
+                await joinGame(gameIdInput, player);
+
+                setSession({
+                  ...session,
+                  id: gameIdInput,
+                });
+              }}
+            >
+              Liity peliin
+            </button>
+          </div>
+
+          {/* TUOTE */}
+          {session?.product && (
+            <p>
+              Arvattava tuote: <strong>{session.product.title}</strong>
+            </p>
+          )}
+
+          {/* WAITING */}
+          {session?.status === "waiting" && (
+            <button
+              onClick={async () => {
+                await updateGame(session.id, {
+                  ...session,
+                  status: "playing",
+                  lastActivity: Date.now(),
+                });
+              }}
+            >
+              Aloita peli
+            </button>
+          )}
+
+            {/* PLAYING */}
+            {session?.status === "playing" && (
+              <QuizForm
+                onSubmitGuess={(guess) => submitGuess(guess)}
+                players={session.players}
+                currentUserId={codename}
+                correctPrice={session?.correctPrice}
+              />
+            )}
+
+            {/* FINISHED */}
+            {session?.status === "finished" && (
+              <RoundResult
+                players={session.players}
+                correctPrice={session.correctPrice}
+              />
+            )}
+        </>
+      ) : (
+        <LoginForm />
+      )}
     </div>
   );
 }
