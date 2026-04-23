@@ -13,15 +13,14 @@ import {
   createGame,
   updateGame,
   subscribeToGame,
-  joinGame, 
+  joinGame,
 } from "./services/firestoreService";
 
 function App() {
   const [user, setUser] = useState(null);
   const [codename, setCodename] = useState(null);
   const [session, setSession] = useState(null);
-
-  const [gameIdInput, setGameIdInput] = useState(""); 
+  const [gameIdInput, setGameIdInput] = useState("");
 
   const generateCodename = () => {
     const animals = ["Fox", "Wolf", "Tiger", "Eagle", "Shadow", "Raven"];
@@ -30,22 +29,27 @@ function App() {
     return animals[random] + number;
   };
 
-  // Auth + session luonti
+  // AUTH + SESSION
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
 
-      if (firebaseUser) {
-        const uid = firebaseUser.uid;
+      if (!firebaseUser) {
+        setCodename(null);
+        return;
+      }
 
-        let name = localStorage.getItem(uid);
-        if (!name) {
-          name = generateCodename();
-          localStorage.setItem(uid, name);
-        }
+      const uid = firebaseUser.uid;
 
-        setCodename(name);
+      let name = localStorage.getItem(uid);
+      if (!name) {
+        name = generateCodename();
+        localStorage.setItem(uid, name);
+      }
 
+      setCodename(name);
+
+      try {
         const newSession = await createSession({
           name: name + "-session",
           creatorName: name,
@@ -58,7 +62,20 @@ function App() {
           guess: null,
         };
 
-        const randomProduct = await fetchRandomProduct();
+        // FETCH
+        let randomProduct;
+        try {
+          randomProduct = await fetchRandomProduct();
+          console.log("PRODUCT:", randomProduct);
+        } catch (err) {
+          console.error("PRODUCT ERROR:", err);
+
+          // fallback ettei peli hajoa
+          randomProduct = {
+            title: "Fallback Product",
+            price: 50,
+          };
+        }
 
         const sessionWithPlayer = {
           ...newSession,
@@ -76,26 +93,32 @@ function App() {
           ...sessionWithPlayer,
           id: gameId,
         });
-      } else {
-        setCodename(null);
+
+      } catch (error) {
+        console.error("SESSION ERROR:", error);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Reaaliaikainen kuuntelu
+  // REALTIME
   useEffect(() => {
     if (!session?.id) return;
 
-    const unsubscribe = subscribeToGame(session.id, (data) => {
-      setSession(data);
+    const gameId = session.id;
+
+    const unsubscribe = subscribeToGame(gameId, (data) => {
+      setSession({
+        ...data,
+        id: gameId,
+      });
     });
 
     return () => unsubscribe();
   }, [session?.id]);
 
-  // Arvaus
+  // ARVAUS
   async function submitGuess(guess) {
     if (!session) return;
 
@@ -182,23 +205,23 @@ function App() {
             </button>
           )}
 
-            {/* PLAYING */}
-            {session?.status === "playing" && (
-              <QuizForm
-                onSubmitGuess={(guess) => submitGuess(guess)}
-                players={session.players}
-                currentUserId={codename}
-                correctPrice={session?.correctPrice}
-              />
-            )}
+          {/* PLAYING */}
+          {session?.status === "playing" && (
+            <QuizForm
+              onSubmitGuess={(guess) => submitGuess(guess)}
+              players={session.players}
+              currentUserId={codename}
+              correctPrice={session?.correctPrice}
+            />
+          )}
 
-            {/* FINISHED */}
-            {session?.status === "finished" && (
-              <RoundResult
-                players={session.players}
-                correctPrice={session.correctPrice}
-              />
-            )}
+          {/* FINISHED */}
+          {session?.status === "finished" && (
+            <RoundResult
+              players={session.players}
+              correctPrice={session.correctPrice}
+            />
+          )}
         </>
       ) : (
         <LoginForm />
