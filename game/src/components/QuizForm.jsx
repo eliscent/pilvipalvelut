@@ -3,7 +3,7 @@ import { useState } from "react";
 function QuizForm({ onSubmitGuess, correctPrice }) {
   const [guess, setGuess] = useState("");
 
-  if (correctPrice !== undefined) {
+  if (correctPrice != null) {
     return (
       <div>
         <h3>Tulos</h3>
