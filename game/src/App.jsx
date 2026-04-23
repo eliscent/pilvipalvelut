@@ -84,16 +84,19 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Reaaliaikainen kuuntelu
-  useEffect(() => {
-    if (!session?.id) return;
+// Reaaliaikainen kuuntelu
+useEffect(() => {
+  if (!session?.id) return;
 
-    const unsubscribe = subscribeToGame(session.id, (data) => {
-      setSession(data);
+  const unsubscribe = subscribeToGame(session.id, (data) => {
+    setSession({
+      ...data,
+      id: session.id,
     });
+  });
 
-    return () => unsubscribe();
-  }, [session?.id]);
+  return () => unsubscribe();
+}, [session?.id]);
 
   // Arvaus
   async function submitGuess(guess) {
