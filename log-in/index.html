@@ -7,7 +7,67 @@
     <title>Code Names</title>
     <script type="module" crossorigin src="/pilvipalvelut/log-in/assets/index-xVisPkQx.js"></script>
     <link rel="stylesheet" crossorigin href="/pilvipalvelut/log-in/assets/index-nqMpL4T3.css">
+    <script>
+  if (localStorage.getItem("consent") === "true") {
+    const script = document.createElement("script");
+
+    script.defer = true;
+    script.src =
+      "https://static.cloudflareinsights.com/beacon.min.js";
+
+    script.setAttribute(
+      "data-cf-beacon",
+      '{"token": "c25e7a942406439282291a40754039d8"}'
+    );
+
+    document.head.appendChild(script);
+  }
+</script>
   </head>
+  <div id="consent-banner" style="
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #f5f5f5;
+  padding: 1rem;
+  border-top: 1px solid #ccc;
+  z-index: 9999;
+  display: none;
+">
+  <p>
+    Tämä sivusto käyttää anonyymia analytiikkaa
+    käyttökokemuksen parantamiseen.
+  </p>
+
+  <button id="accept-btn">
+    Hyväksy analytiikka
+  </button>
+
+  <button id="decline-btn">
+    Hylkää
+  </button>
+</div>
+
+<script>
+  const banner = document.getElementById("consent-banner");
+
+  const consent = localStorage.getItem("consent");
+
+  if (consent === null) {
+    banner.style.display = "block";
+  }
+
+  document.getElementById("accept-btn").onclick = () => {
+    localStorage.setItem("consent", "true");
+    location.reload();
+  };
+
+  document.getElementById("decline-btn").onclick = () => {
+    localStorage.setItem("consent", "false");
+    location.reload();
+  };
+</script>
   <body>
     <div id="root"></div>
   </body>
