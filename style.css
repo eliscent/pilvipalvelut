@@ -29,7 +29,7 @@ max-width: 600px;
 margin: 0 auto 2rem;
 }
 
-.info {
+p.info {
   max-width: 800px;
   margin: 2rem auto;
   padding: 1.5rem;
@@ -41,16 +41,6 @@ margin: 0 auto 2rem;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 1rem;
   backdrop-filter: blur(4px);
-}
-
-.info h2 {
-  color: #b9a7ff;
-  margin-bottom: 1rem;
-  font-size: 1.5rem;
-}
-
-.info strong {
-  color: #d7cfff;
 }
 
 a.button {
