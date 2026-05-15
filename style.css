@@ -29,6 +29,29 @@ max-width: 600px;
 margin: 0 auto 2rem;
 }
 
+.info {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  background: rgba(20, 20, 30, 0.85);
+  border: 1px solid #84d3e7;
+  border-radius: 12px;
+  color: #f0f0f0;
+  line-height: 1.7;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  backdrop-filter: blur(4px);
+}
+
+.info h2 {
+  color: #b9a7ff;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.info strong {
+  color: #d7cfff;
+}
 
 a.button {
   display: inline-block;
